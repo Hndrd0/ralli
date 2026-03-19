@@ -1,0 +1,211 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Ralli Code Generator</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: #f0f4f8;
+      font-family: system-ui, sans-serif;
+    }
+
+    .card {
+      background: #fff;
+      border-radius: 12px;
+      box-shadow: 0 4px 24px rgba(0,0,0,.1);
+      padding: 2rem 2.5rem;
+      width: 100%;
+      max-width: 420px;
+    }
+
+    h1 {
+      margin: 0 0 1.5rem;
+      font-size: 1.5rem;
+      color: #1a202c;
+      text-align: center;
+    }
+
+    label {
+      display: block;
+      font-size: .875rem;
+      font-weight: 600;
+      color: #4a5568;
+      margin-bottom: .35rem;
+    }
+
+    input[type="text"] {
+      width: 100%;
+      padding: .6rem .85rem;
+      border: 1px solid #cbd5e0;
+      border-radius: 8px;
+      font-size: 1rem;
+      outline: none;
+      transition: border-color .2s;
+      margin-bottom: 1rem;
+    }
+
+    input[type="text"]:focus {
+      border-color: #667eea;
+    }
+
+    button[type="submit"] {
+      width: 100%;
+      padding: .7rem;
+      background: #667eea;
+      color: #fff;
+      border: none;
+      border-radius: 8px;
+      font-size: 1rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: background .2s;
+    }
+
+    button[type="submit"]:hover:not(:disabled) {
+      background: #5a67d8;
+    }
+
+    button[type="submit"]:disabled {
+      opacity: .6;
+      cursor: not-allowed;
+    }
+
+    #result {
+      display: none;
+      margin-top: 1.5rem;
+      padding: 1rem;
+      background: #ebf4ff;
+      border: 1px solid #bee3f8;
+      border-radius: 8px;
+      text-align: center;
+    }
+
+    #result p {
+      margin: 0 0 .4rem;
+      font-size: .875rem;
+      color: #2b6cb0;
+    }
+
+    #result strong {
+      font-size: 1.25rem;
+      color: #1a365d;
+      letter-spacing: .05em;
+    }
+
+    #error {
+      display: none;
+      margin-top: 1rem;
+      padding: .75rem 1rem;
+      background: #fff5f5;
+      border: 1px solid #fed7d7;
+      border-radius: 8px;
+      color: #c53030;
+      font-size: .875rem;
+    }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <h1>Ralli Code Generator</h1>
+    <form id="codeForm">
+      <label for="name">Full Name</label>
+      <input type="text" id="name" placeholder="Enter your name" required />
+
+      <label for="admissionNo">Admission Number</label>
+      <input type="text" id="admissionNo" placeholder="Enter admission number" required />
+
+      <button type="submit" id="submitBtn">Generate Code</button>
+    </form>
+
+    <div id="error"></div>
+
+    <div id="result">
+      <p>Your unique code:</p>
+      <strong id="generatedCode"></strong>
+      <p style="margin-top:.5rem;font-size:.75rem;color:#4a90d9;">Valid for 10 minutes</p>
+    </div>
+  </div>
+
+  <!-- Appwrite JS SDK via CDN -->
+  <script src="https://cdn.jsdelivr.net/npm/appwrite@16"></script>
+  <script>
+    // These values are public client-side configuration for Appwrite.
+    // Access control is enforced by Appwrite's database permissions/API keys on the server.
+    const ENDPOINT    = "https://sgp.cloud.appwrite.io/v1";
+    const PROJECT_ID  = "69bbc74d002b43ecdee1";
+    const DATABASE_ID = "ralli-db";
+    const COLLECTION_ID = "codes";
+
+    // Initialise Appwrite client
+    const client = new Appwrite.Client();
+    client.setEndpoint(ENDPOINT).setProject(PROJECT_ID);
+
+    const databases = new Appwrite.Databases(client);
+
+    // Generate a cryptographically random 4-digit zero-padded number
+    function randomFourDigits() {
+      const arr = new Uint16Array(1);
+      crypto.getRandomValues(arr);
+      return String(arr[0] % 10000).padStart(4, "0");
+    }
+
+    // Generate the unique code
+    function generateCode(admissionNo) {
+      return `RIS-${admissionNo}-${randomFourDigits()}`;
+    }
+
+    // Form submission handler
+    document.getElementById("codeForm").addEventListener("submit", async (e) => {
+      e.preventDefault();
+
+      const submitBtn = document.getElementById("submitBtn");
+      const errorDiv  = document.getElementById("error");
+      const resultDiv = document.getElementById("result");
+
+      // Reset UI
+      errorDiv.style.display  = "none";
+      resultDiv.style.display = "none";
+      submitBtn.disabled      = true;
+      submitBtn.textContent   = "Generating…";
+
+      const name        = document.getElementById("name").value.trim();
+      const admissionNo = document.getElementById("admissionNo").value.trim();
+
+      const code      = generateCode(admissionNo);
+      const expiresAt = new Date(Date.now() + 10 * 60 * 1000).toISOString();
+
+      try {
+        await databases.createDocument(
+          DATABASE_ID,
+          COLLECTION_ID,
+          Appwrite.ID.unique(),
+          {
+            name,
+            admissionNo,
+            code,
+            used: false,
+            expiresAt,
+          }
+        );
+
+        document.getElementById("generatedCode").textContent = code;
+        resultDiv.style.display = "block";
+      } catch (err) {
+        errorDiv.textContent    = "Failed to save your code. Please try again.";
+        errorDiv.style.display  = "block";
+      } finally {
+        submitBtn.disabled    = false;
+        submitBtn.textContent = "Generate Code";
+      }
+    });
+  </script>
+</body>
+</html>
