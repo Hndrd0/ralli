@@ -279,8 +279,7 @@
       try {
         const execution = await functions.createExecution(
           FUNCTION_ID,
-          JSON.stringify({ code: codeValue }),
-          false
+          JSON.stringify({ code: codeValue })
         );
 
         let result;
@@ -290,8 +289,8 @@
           throw new Error("Unexpected response from server. Please try again.");
         }
 
-        if (!result.success) {
-          throw new Error(result.message || "Failed to redeem code. Please try again.");
+        if (!result || !result.success) {
+          throw new Error(result?.message || "Failed to redeem code. Please try again.");
         }
 
         document.getElementById("redeemCode").value = "";
