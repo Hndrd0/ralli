@@ -2,7 +2,12 @@ import { Client, Databases, Query } from "node-appwrite";
 import fetch from "node-fetch";
 
 export default async ({ req, res, log, error }) => {
+  log("Raw request body: " + JSON.stringify(req.body));
+
   let body = {};
+  if (!req.body || (typeof req.body === "string" && !req.body.trim())) {
+    return res.json({ success: false, message: "Missing request body." });
+  }
   try {
     body = typeof req.body === "string" ? JSON.parse(req.body) : req.body;
   } catch (e) {
