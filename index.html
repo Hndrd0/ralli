@@ -199,7 +199,8 @@
         document.getElementById("generatedCode").textContent = code;
         resultDiv.style.display = "block";
       } catch (err) {
-        errorDiv.textContent    = "Failed to save your code. Please try again.";
+        console.error("Appwrite error:", err);
+        errorDiv.textContent    = err.message || "Failed to save your code. Please try again.";
         errorDiv.style.display  = "block";
       } finally {
         submitBtn.disabled    = false;
