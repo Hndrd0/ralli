@@ -190,16 +190,18 @@
   <script>
     // These values are public client-side configuration for Appwrite.
     // Access control is enforced by Appwrite's database permissions/API keys on the server.
-    const ENDPOINT    = "https://sgp.cloud.appwrite.io/v1";
-    const PROJECT_ID  = "69bbc74d002b43ecdee1";
-    const DATABASE_ID = "69bbc869001872dfc18f";
+    const ENDPOINT      = "https://sgp.cloud.appwrite.io/v1";
+    const PROJECT_ID    = "69bbc74d002b43ecdee1";
+    const DATABASE_ID   = "69bbc869001872dfc18f";
     const COLLECTION_ID = "codes";
+    const FUNCTION_ID   = "YOUR_FUNCTION_ID_HERE"; // Replace with your Appwrite Function ID after deployment
 
     // Initialise Appwrite client
     const client = new Appwrite.Client();
     client.setEndpoint(ENDPOINT).setProject(PROJECT_ID);
 
-    const databases = new Appwrite.Databases(client);
+    const databases  = new Appwrite.Databases(client);
+    const functions  = new Appwrite.Functions(client);
 
     // Generate a cryptographically random 4-digit zero-padded number
     function randomFourDigits() {
@@ -262,8 +264,8 @@
     document.getElementById("redeemForm").addEventListener("submit", async (e) => {
       e.preventDefault();
 
-      const redeemBtn    = document.getElementById("redeemBtn");
-      const redeemError  = document.getElementById("redeemError");
+      const redeemBtn     = document.getElementById("redeemBtn");
+      const redeemError   = document.getElementById("redeemError");
       const redeemSuccess = document.getElementById("redeemSuccess");
 
       // Reset UI
@@ -275,47 +277,21 @@
       const codeValue = document.getElementById("redeemCode").value.trim();
 
       try {
-        const result = await databases.listDocuments(
-          DATABASE_ID,
-          COLLECTION_ID,
-          [Appwrite.Query.equal("code", codeValue)]
+        const execution = await functions.createExecution(
+          FUNCTION_ID,
+          JSON.stringify({ code: codeValue }),
+          false
         );
 
-        if (result.documents.length === 0) {
-          throw new Error("Invalid code. Please check and try again.");
-        }
-
-        const doc = result.documents[0];
-        const now = new Date();
-
-        if (new Date(doc.expiresAt) < now) {
-          throw new Error("This code has expired.");
-        }
-
-        if (doc.used) {
-          throw new Error("This code has already been used.");
-        }
-
-        await databases.updateDocument(
-          DATABASE_ID,
-          COLLECTION_ID,
-          doc.$id,
-          { used: true }
-        );
-
+        let result;
         try {
-          await fetch(
-            "https://discord.com/api/webhooks/1484127066260635758/Zt8t2MHBzgfNU2HAm5kTy1fsTT0qkQCciQgC0j4DUaSqi9CqsedJolh4oB6WZe9orZoc",
-            {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({
-                content: `Code redeemed by: ${doc.name}, Admission No: ${doc.admissionNo}`,
-              }),
-            }
-          );
-        } catch (webhookErr) {
-          console.error("Discord webhook error:", webhookErr);
+          result = JSON.parse(execution.responseBody);
+        } catch (parseErr) {
+          throw new Error("Unexpected response from server. Please try again.");
+        }
+
+        if (!result.success) {
+          throw new Error(result.message || "Failed to redeem code. Please try again.");
         }
 
         document.getElementById("redeemCode").value = "";
