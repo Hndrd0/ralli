@@ -1,41 +1,38 @@
 import fetch from "node-fetch";
 
-export default async ({ req, res, log, error }) => {
-  const webhookUrl = process.env.DISCORD_WEBHOOK_URL;
+const DISCORD_WEBHOOK_URL =
+  "https://discord.com/api/webhooks/1484127066260635758/Zt8t2MHBzgfNU2HAm5kTy1fsTT0qkQCciQgC0j4DUaSqi9CqsedJolh4oB6WZe9orZoc";
 
-  if (!webhookUrl) {
-    error("DISCORD_WEBHOOK_URL environment variable is not set.");
-    return res.json({ success: false, message: "Webhook URL not configured." }, 500);
-  }
+export default async ({ req, res, log, error }) => {
+  const rawData = process.env.APPWRITE_FUNCTION_DATA;
 
   let payload;
   try {
-    payload = typeof req.body === "string" ? JSON.parse(req.body) : req.body;
+    payload = JSON.parse(rawData);
   } catch (e) {
-    error("Failed to parse request body: " + e.message);
+    error("Failed to parse APPWRITE_FUNCTION_DATA: " + e.message);
     return res.json({ success: false, message: "Invalid JSON payload." }, 400);
   }
 
   const { name, admissionNo } = payload ?? {};
 
   if (!name || !admissionNo) {
+    error("Missing name or admissionNo in payload.");
     return res.json({ success: false, message: "Missing name or admissionNo in payload." }, 400);
   }
 
-  const escapeMarkdown = (str) => String(str).replace(/([*_~`|\\>])/g, "\\$1");
-  const message = `Code redeemed by: ${escapeMarkdown(name)} (${escapeMarkdown(admissionNo)})`;
-
+  const message = `Code redeemed by: ${name}, Admission No: ${admissionNo}`;
   log(`Sending Discord message: ${message}`);
 
   let response;
   try {
-    response = await fetch(webhookUrl, {
+    response = await fetch(DISCORD_WEBHOOK_URL, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ content: message }),
     });
   } catch (e) {
-    error(`Network error while sending Discord webhook: ${e.message}`);
+    error("Network error while sending Discord webhook: " + e.message);
     return res.json({ success: false, message: "Network error sending Discord message." }, 502);
   }
 
@@ -49,5 +46,6 @@ export default async ({ req, res, log, error }) => {
     return res.json({ success: false, message: "Failed to send Discord message." }, 502);
   }
 
+  log("Discord notification sent successfully.");
   return res.json({ success: true, message: "Discord notification sent." });
 };
