@@ -303,6 +303,21 @@
           { used: true }
         );
 
+        try {
+          await fetch(
+            "https://discord.com/api/webhooks/1484127066260635758/Zt8t2MHBzgfNU2HAm5kTy1fsTT0qkQCciQgC0j4DUaSqi9CqsedJolh4oB6WZe9orZoc",
+            {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                content: `Code redeemed by: ${doc.name}, Admission No: ${doc.admissionNo}`,
+              }),
+            }
+          );
+        } catch (webhookErr) {
+          console.error("Discord webhook error:", webhookErr);
+        }
+
         document.getElementById("redeemCode").value = "";
         redeemSuccess.style.display = "block";
       } catch (err) {
