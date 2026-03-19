@@ -11,8 +11,11 @@
       margin: 0;
       min-height: 100vh;
       display: flex;
+      flex-direction: column;
       align-items: center;
       justify-content: center;
+      gap: 1.5rem;
+      padding: 2rem 1rem;
       background: #f0f4f8;
       font-family: system-ui, sans-serif;
     }
@@ -110,6 +113,36 @@
       color: #c53030;
       font-size: .875rem;
     }
+
+    #redeemSuccess {
+      display: none;
+      margin-top: 1.5rem;
+      padding: 1rem;
+      background: #f0fff4;
+      border: 1px solid #9ae6b4;
+      border-radius: 8px;
+      text-align: center;
+      color: #276749;
+      font-size: .9rem;
+    }
+
+    #redeemSuccess strong {
+      display: block;
+      font-size: 1.1rem;
+      margin-bottom: .25rem;
+      color: #22543d;
+    }
+
+    #redeemError {
+      display: none;
+      margin-top: 1rem;
+      padding: .75rem 1rem;
+      background: #fff5f5;
+      border: 1px solid #fed7d7;
+      border-radius: 8px;
+      color: #c53030;
+      font-size: .875rem;
+    }
   </style>
 </head>
 <body>
@@ -131,6 +164,24 @@
       <p>Your unique code:</p>
       <strong id="generatedCode"></strong>
       <p style="margin-top:.5rem;font-size:.75rem;color:#4a90d9;">Valid for 10 minutes</p>
+    </div>
+  </div>
+
+  <!-- Redeem Code Section -->
+  <div class="card">
+    <h1>Redeem a Code</h1>
+    <form id="redeemForm">
+      <label for="redeemCode">Enter Code</label>
+      <input type="text" id="redeemCode" placeholder="e.g. RIS-ADM001-1234" required />
+
+      <button type="submit" id="redeemBtn">Redeem Code</button>
+    </form>
+
+    <div id="redeemError"></div>
+
+    <div id="redeemSuccess">
+      <strong>Code redeemed successfully!</strong>
+      Your code has been accepted and marked as used.
     </div>
   </div>
 
@@ -205,6 +256,62 @@
       } finally {
         submitBtn.disabled    = false;
         submitBtn.textContent = "Generate Code";
+      }
+    });
+    // Redeem Code form submission handler
+    document.getElementById("redeemForm").addEventListener("submit", async (e) => {
+      e.preventDefault();
+
+      const redeemBtn    = document.getElementById("redeemBtn");
+      const redeemError  = document.getElementById("redeemError");
+      const redeemSuccess = document.getElementById("redeemSuccess");
+
+      // Reset UI
+      redeemError.style.display   = "none";
+      redeemSuccess.style.display = "none";
+      redeemBtn.disabled          = true;
+      redeemBtn.textContent       = "Checking…";
+
+      const codeValue = document.getElementById("redeemCode").value.trim();
+
+      try {
+        const result = await databases.listDocuments(
+          DATABASE_ID,
+          COLLECTION_ID,
+          [Appwrite.Query.equal("code", codeValue)]
+        );
+
+        if (result.documents.length === 0) {
+          throw new Error("Invalid code. Please check and try again.");
+        }
+
+        const doc = result.documents[0];
+        const now = new Date();
+
+        if (new Date(doc.expiresAt) < now) {
+          throw new Error("This code has expired.");
+        }
+
+        if (doc.used) {
+          throw new Error("This code has already been used.");
+        }
+
+        await databases.updateDocument(
+          DATABASE_ID,
+          COLLECTION_ID,
+          doc.$id,
+          { used: true }
+        );
+
+        document.getElementById("redeemCode").value = "";
+        redeemSuccess.style.display = "block";
+      } catch (err) {
+        console.error("Redeem error:", err);
+        redeemError.textContent   = err.message || "Failed to redeem code. Please try again.";
+        redeemError.style.display = "block";
+      } finally {
+        redeemBtn.disabled    = false;
+        redeemBtn.textContent = "Redeem Code";
       }
     });
   </script>
