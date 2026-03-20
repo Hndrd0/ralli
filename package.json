@@ -1,6 +1,7 @@
 {
   "name": "ralli-function",
   "version": "1.0.0",
+  "type": "module",
   "main": "index.js",
   "dependencies": {
     "node-appwrite": "^22.1.3",
