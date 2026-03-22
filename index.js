@@ -6,17 +6,22 @@ export default async ({ req, res, log, error }) => {
 
   let body = {};
   if (!req.body || (typeof req.body === "string" && !req.body.trim())) {
-    return res.json({ success: false, message: "Missing request body." });
+    res.setHeader("Content-Type", "application/json");
+    return res.send(JSON.stringify({ success: false, message: "Missing request body." }));
   }
   try {
     body = typeof req.body === "string" ? JSON.parse(req.body) : req.body;
   } catch (e) {
     error("Failed to parse request body: " + e.message);
-    return res.json({ success: false, message: "Invalid request body." });
+    res.setHeader("Content-Type", "application/json");
+    return res.send(JSON.stringify({ success: false, message: "Invalid request body." }));
   }
 
   const { code } = body ?? {};
-  if (!code) return res.json({ success: false, message: "Missing code in request." });
+  if (!code) {
+    res.setHeader("Content-Type", "application/json");
+    return res.send(JSON.stringify({ success: false, message: "Missing code in request." }));
+  }
 
   const client = new Client()
     .setEndpoint(process.env.APPWRITE_ENDPOINT)
@@ -34,24 +39,33 @@ export default async ({ req, res, log, error }) => {
     ]);
   } catch (e) {
     error("Database query error: " + e.message);
-    return res.json({ success: false, message: "Failed to query the database." });
+    res.setHeader("Content-Type", "application/json");
+    return res.send(JSON.stringify({ success: false, message: "Failed to query the database." }));
   }
 
   if (!result.documents || result.documents.length === 0) {
-    return res.json({ success: false, message: "Invalid code." });
+    res.setHeader("Content-Type", "application/json");
+    return res.send(JSON.stringify({ success: false, message: "Invalid code." }));
   }
 
   const doc = result.documents[0];
   const now = new Date();
 
-  if (new Date(doc.expiresAt) < now) return res.json({ success: false, message: "Code expired." });
-  if (doc.used) return res.json({ success: false, message: "Code already used." });
+  if (new Date(doc.expiresAt) < now) {
+    res.setHeader("Content-Type", "application/json");
+    return res.send(JSON.stringify({ success: false, message: "Code expired." }));
+  }
+  if (doc.used) {
+    res.setHeader("Content-Type", "application/json");
+    return res.send(JSON.stringify({ success: false, message: "Code already used." }));
+  }
 
   try {
     await databases.updateDocument(databaseId, collectionId, doc.$id, { used: true });
   } catch (e) {
     error("Database update error: " + e.message);
-    return res.json({ success: false, message: "Failed to mark code as used." });
+    res.setHeader("Content-Type", "application/json");
+    return res.send(JSON.stringify({ success: false, message: "Failed to mark code as used." }));
   }
 
   // Discord webhook
@@ -67,5 +81,6 @@ export default async ({ req, res, log, error }) => {
     error("Discord webhook error: " + e.message);
   }
 
-  return res.json({ success: true, message: "Code redeemed successfully." });
+  res.setHeader("Content-Type", "application/json");
+  return res.send(JSON.stringify({ success: true, message: "Code redeemed successfully." }));
 };
